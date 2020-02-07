@@ -1,14 +1,8 @@
-/*
-
- ######################## 
- #  Hydjet1		#
- #  version: 1.9 patch1 #
- ########################
-
- * Interface to the HYDJET generator, produces HepMC events
- *
- * Original Author: Camelia Mironov
- */
+/**
+   \brief Interface to the HYDJET generator, produces HepMC events
+   \version 1.9.1
+   \author Camelia Mironov
+*/
 
 #include <iostream>
 #include <cmath>
@@ -61,41 +55,41 @@ const std::vector<std::string> HydjetHadronizer::theSharedResources = {edm::Shar
                                                                        gen::FortranInstance::kFortranInstance};
 
 //_____________________________________________________________________
-HydjetHadronizer::HydjetHadronizer(const ParameterSet& pset)
-    : BaseHadronizer(pset),
-      evt(nullptr),
-      pset_(pset),
-      abeamtarget_(pset.getParameter<double>("aBeamTarget")),
-      angularspecselector_(pset.getParameter<int>("angularSpectrumSelector")),
-      bfixed_(pset.getParameter<double>("bFixed")),
-      bmax_(pset.getParameter<double>("bMax")),
-      bmin_(pset.getParameter<double>("bMin")),
-      cflag_(pset.getParameter<int>("cFlag")),
-      embedding_(pset.getParameter<bool>("embeddingMode")),
-      comenergy(pset.getParameter<double>("comEnergy")),
-      doradiativeenloss_(pset.getParameter<bool>("doRadiativeEnLoss")),
-      docollisionalenloss_(pset.getParameter<bool>("doCollisionalEnLoss")),
-      fracsoftmult_(pset.getParameter<double>("fracSoftMultiplicity")),
-      hadfreeztemp_(pset.getParameter<double>("hadronFreezoutTemperature")),
-      hymode_(pset.getParameter<string>("hydjetMode")),
-      maxEventsToPrint_(pset.getUntrackedParameter<int>("maxEventsToPrint", 1)),
-      maxlongy_(pset.getParameter<double>("maxLongitudinalRapidity")),
-      maxtrany_(pset.getParameter<double>("maxTransverseRapidity")),
-      nsub_(0),
-      nhard_(0),
-      nmultiplicity_(pset.getParameter<int>("nMultiplicity")),
-      nsoft_(0),
-      nquarkflavor_(pset.getParameter<int>("qgpNumQuarkFlavor")),
-      pythiaPylistVerbosity_(pset.getUntrackedParameter<int>("pythiaPylistVerbosity", 0)),
-      qgpt0_(pset.getParameter<double>("qgpInitialTemperature")),
-      qgptau0_(pset.getParameter<double>("qgpProperTimeFormation")),
-      phi0_(0.),
-      sinphi0_(0.),
-      cosphi0_(1.),
-      rotate_(pset.getParameter<bool>("rotateEventPlane")),
-      shadowingswitch_(pset.getParameter<int>("shadowingSwitch")),
-      signn_(pset.getParameter<double>("sigmaInelNN")),
-      pythia6Service_(new Pythia6Service(pset)) {
+HydjetHadronizer::HydjetHadronizer(const ParameterSet& pset, edm::ConsumesCollector && iC)
+  : BaseHadronizer(pset),
+    evt(nullptr),
+    pset_(pset),
+    abeamtarget_(pset.getParameter<double>("aBeamTarget")),
+    angularspecselector_(pset.getParameter<int>("angularSpectrumSelector")),
+    bfixed_(pset.getParameter<double>("bFixed")),
+    bmax_(pset.getParameter<double>("bMax")),
+    bmin_(pset.getParameter<double>("bMin")),
+    cflag_(pset.getParameter<int>("cFlag")),
+    embedding_(pset.getParameter<bool>("embeddingMode")),
+    comenergy(pset.getParameter<double>("comEnergy")),
+    doradiativeenloss_(pset.getParameter<bool>("doRadiativeEnLoss")),
+  docollisionalenloss_(pset.getParameter<bool>("doCollisionalEnLoss")),
+  fracsoftmult_(pset.getParameter<double>("fracSoftMultiplicity")),
+  hadfreeztemp_(pset.getParameter<double>("hadronFreezoutTemperature")),
+  hymode_(pset.getParameter<string>("hydjetMode")),
+  maxEventsToPrint_(pset.getUntrackedParameter<int>("maxEventsToPrint", 1)),
+  maxlongy_(pset.getParameter<double>("maxLongitudinalRapidity")),
+  maxtrany_(pset.getParameter<double>("maxTransverseRapidity")),
+  nsub_(0),
+  nhard_(0),
+  nmultiplicity_(pset.getParameter<int>("nMultiplicity")),
+  nsoft_(0),
+  nquarkflavor_(pset.getParameter<int>("qgpNumQuarkFlavor")),
+  pythiaPylistVerbosity_(pset.getUntrackedParameter<int>("pythiaPylistVerbosity", 0)),
+  qgpt0_(pset.getParameter<double>("qgpInitialTemperature")),
+  qgptau0_(pset.getParameter<double>("qgpProperTimeFormation")),
+  phi0_(0.),
+  sinphi0_(0.),
+  cosphi0_(1.),
+  rotate_(pset.getParameter<bool>("rotateEventPlane")),
+  shadowingswitch_(pset.getParameter<int>("shadowingSwitch")),
+  signn_(pset.getParameter<double>("sigmaInelNN")),
+  pythia6Service_(new Pythia6Service(pset)) {
   // Default constructor
 
   // PYLIST Verbosity Level
@@ -107,8 +101,14 @@ HydjetHadronizer::HydjetHadronizer(const ParameterSet& pset)
   maxEventsToPrint_ = pset.getUntrackedParameter<int>("maxEventsToPrint", 0);
   LogDebug("Events2Print") << "Number of events to be printed = " << maxEventsToPrint_;
 
-  if (embedding_)
-    src_ = pset.getParameter<edm::InputTag>("backgroundLabel");
+  if (embedding_){
+    cflag_ = 0;
+    src_ = iC.consumes<CrossingFrame<edm::HepMCProduct> >(pset.getUntrackedParameter<edm::InputTag>( "backgroundLabel", edm::InputTag("mix", "generatorSmeared") ));
+    // src_ = iC.consumes<PileupMixingContent>(pset.getUntrackedParameter<edm::InputTag>( "backgroundLabel", edm::InputTag("mix","") ));
+  }
+
+  int cm = 1, va, vb, vc;
+  HYJVER(cm, va, vb, vc);
 }
 
 //_____________________________________________________________________
@@ -141,7 +141,7 @@ void HydjetHadronizer::add_heavy_ion_rec(HepMC::GenEvent* evt) {
                                             phi0_,                           // event_plane_angle
                                             0,  //hypsi3.psi3,                                   // eccentricity
                                             hyjpar.sigin  // sigma_inel_NN
-  );
+                                            );
 
   evt->set_heavy_ion(*hi);
   delete hi;
@@ -187,24 +187,62 @@ HepMC::GenVertex* HydjetHadronizer::build_hyjet_vertex(int i, int id) {
 //___________________________________________________________________
 
 bool HydjetHadronizer::generatePartonsAndHadronize() {
+
+  std::cout<<"generating ev."<<std::endl;
+
   Pythia6Service::InstanceWrapper guard(pythia6Service_);
 
   // generate single event
   if (embedding_) {
-    cflag_ = 0;
-    const edm::Event& e = getEDMEvent();
-    Handle<HepMCProduct> input;
-    e.getByLabel(src_, input);
-    const HepMC::GenEvent* inev = input->GetEvent();
-    const HepMC::HeavyIon* hi = inev->heavy_ion();
-    if (hi) {
-      bfixed_ = hi->impact_parameter();
+    /*
+      const edm::Event& e = getEDMEvent();
+      Handle<HepMCProduct> input;
+      e.getByToken(src_,input);
+
+      const HepMC::GenEvent* inev = input->GetEvent();
+      const HepMC::HeavyIon* hi = inev->heavy_ion();
+      if (hi) {
+      bfixed_ = (hi->impact_parameter())/nuclear_radius();
       phi0_ = hi->event_plane_angle();
       sinphi0_ = sin(phi0_);
       cosphi0_ = cos(phi0_);
-    } else {
+      } else {
       LogWarning("EventEmbedding") << "Background event does not have heavy ion record!";
-    }
+      }
+    */
+
+    //////
+    const edm::Event& e = getEDMEvent();
+    MixCollection<HepMCProduct>* cfhepmcprod = 0;
+    size_t npiles;
+
+    Handle<CrossingFrame<edm::HepMCProduct> > cf;
+    // Handle<PileupMixingContent> cf;
+
+    e.getByToken(src_,cf);
+    cout<<" TEST ID= "<<e.id() <<" straem id = "<<e.streamID()<<" RUN = "<< e.run()<<" size= "<<e.size()<<" Product: "<< cf.product()<<" ENDD"<<endl;
+    return false;
+    /*
+      cfhepmcprod = new MixCollection<HepMCProduct>(cf.product());
+      std::cout<<"!!!Product!!!"<<std::endl;
+
+      npiles = cfhepmcprod->size();
+      LogDebug("PyquenHadronizer")<<"npiles : "<<npiles<<endl;
+      for(unsigned int icf = 0; icf < npiles; ++icf){
+      const HepMC::HeavyIon* hi = cfhepmcprod->getObject(icf).GetEvent()->heavy_ion();
+
+      if (hi) { 
+      bfixed_ = (hi->impact_parameter())/nuclear_radius();
+      phi0_ = hi->event_plane_angle();
+      sinphi0_ = sin(phi0_);
+      cosphi0_ = cos(phi0_);
+      } else {
+      LogWarning("EventEmbedding") << "Background event does not have heavy ion record!";
+      }
+      } 
+    */
+    //////
+
   } else if (rotate_)
     rotateEvtPlane();
 
@@ -231,7 +269,7 @@ bool HydjetHadronizer::generatePartonsAndHadronize() {
       edm::Exception except(edm::errors::EventCorruption, sstr.str());
       throw except;
     } else {
-      HYEVNT();
+      HYEVNT(bfixed_);
       nsoft_ = hyfpar.nhyd;
       nsub_ = hyjpar.njet;
       nhard_ = hyfpar.npyt;

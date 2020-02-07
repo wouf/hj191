@@ -14,6 +14,12 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "GeneratorInterface/Core/interface/BaseHadronizer.h"
 
+#include "FWCore/Utilities/interface/EDGetToken.h"
+#include "FWCore/Framework/interface/EDProducer.h"
+#include "FWCore/Framework/interface/ConsumesCollector.h"
+#include "SimDataFormats/CrossingFrame/interface/MixCollection.h"
+#include "SimDataFormats/PileupSummaryInfo/interface/PileupMixingContent.h"
+
 #include <map>
 #include <string>
 #include <vector>
@@ -32,9 +38,9 @@ namespace HepMC {
 namespace gen {
   class Pythia6Service;
 
-  class HydjetHadronizer : public BaseHadronizer {
+  class HydjetHadronizer : public BaseHadronizer {//, public edm::ConsumesCollector {//edm::EDConsumerBase {
   public:
-    HydjetHadronizer(const edm::ParameterSet&);
+    HydjetHadronizer(const edm::ParameterSet&, edm::ConsumesCollector&&);
     ~HydjetHadronizer() override;
 
     bool generatePartonsAndHadronize();
@@ -122,7 +128,9 @@ namespace gen {
                                     // DEFAULT= 58 mb
 
     Pythia6Service* pythia6Service_;
-    edm::InputTag src_;
+    edm::EDGetTokenT<CrossingFrame<edm::HepMCProduct> > src_;
+    //edm::EDGetTokenT<PileupMixingContent> src_;
+
   };
 
   double HydjetHadronizer::nuclear_radius() const {
